@@ -74,7 +74,6 @@ func main() {
 func sampleUps(c chan string, upsName string, sampleInterval int) {
 	for {
 
-		log.Info("In ", upsName)
 		cmd := exec.Command(*upscPath, upsName)
 		stdout, err := cmd.StdoutPipe()
 
@@ -96,17 +95,13 @@ func sampleUps(c chan string, upsName string, sampleInterval int) {
 				continue
 			}
 
-			// if we can convert to float assign a value
-			// if not, just check for ups status (OL || OB)
-
+			//Special case for the Status
 			if parts[0] == "ups.status" {
 				gauge := getGauge(parts[0])
 				if gauge == nil {
-					log.Info(upsName, " ask key creation ")
 					c <- parts[0]
 					continue
 				}
-				//TODO: Check and apply each status number
 				switch parts[1] {
 				case "CAL":
 					gauge.WithLabelValues(upsName).Set(0)
@@ -134,15 +129,14 @@ func sampleUps(c chan string, upsName string, sampleInterval int) {
 					gauge.WithLabelValues(upsName).Set(11)
 				}
 			} else {
+				//Try to convert everything to float. If not possible, drop the key...
 				value, err := strconv.ParseFloat(parts[1], 64)
 				if err == nil {
 					gauge := getGauge(parts[0])
 					if gauge == nil {
-						log.Info(upsName, " ask key creation ")
 						c <- parts[0]
 						continue
 					}
-
 					gauge.WithLabelValues(upsName).Set(value)
 				}
 			}
@@ -185,7 +179,7 @@ func CreateAndRegisterGauge(key string) prometheus.GaugeVec {
 	if val, ok := prometheusMetrics[key]; ok {
 		return val
 	} else {
-		log.Info("Creating key ", key)
+		log.Info("Creating metric ", key)
 		gauge := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: key,
 		}, []string{
